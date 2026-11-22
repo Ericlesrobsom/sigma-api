@@ -175,6 +175,129 @@ impl SigmaClient {
         .await
     }
 
+    pub async fn customer_by_username(&self, username: &str) -> Result<Customer, SigmaError> {
+        let env: Envelope<Customer> = self
+            .get(
+                &format!("/customers/by-username/{}", segment(username)),
+                &[],
+            )
+            .await?;
+        Ok(env.data)
+    }
+
+    pub async fn coupons(&self) -> Result<Value, SigmaError> {
+        self.get_value("/coupons", &[]).await
+    }
+
+    pub async fn coupon(&self, id: &str) -> Result<Value, SigmaError> {
+        self.get_value(&format!("/coupons/{}", segment(id)), &[])
+            .await
+    }
+
+    pub async fn create_coupon(&self, body: &Value) -> Result<Value, SigmaError> {
+        self.post_value("/coupons", body).await
+    }
+
+    pub async fn delete_coupon(&self, id: &str) -> Result<Value, SigmaError> {
+        self.delete_value(&format!("/coupons/{}", segment(id)))
+            .await
+    }
+
+    pub async fn resellers(&self) -> Result<Value, SigmaError> {
+        self.get_value("/resellers", &[]).await
+    }
+
+    pub async fn reseller(&self, id: &str) -> Result<Value, SigmaError> {
+        self.get_value(&format!("/resellers/{}", segment(id)), &[])
+            .await
+    }
+
+    pub async fn create_reseller(&self, body: &Value) -> Result<Value, SigmaError> {
+        self.post_value("/resellers", body).await
+    }
+
+    pub async fn update_reseller(&self, id: &str, body: &Value) -> Result<Value, SigmaError> {
+        self.put_value(&format!("/resellers/{}", segment(id)), body)
+            .await
+    }
+
+    pub async fn reseller_credits(
+        &self,
+        id: &str,
+        action: &str,
+        body: &Value,
+    ) -> Result<Value, SigmaError> {
+        let action = match action {
+            "add" | "remove" | "recharge" => action,
+            other => {
+                return Err(SigmaError::Config(format!(
+                    "acao de creditos invalida: {other} (use add, remove ou recharge)"
+                )))
+            }
+        };
+        self.post_value(
+            &format!("/resellers/{}/credits/{}", segment(id), action),
+            body,
+        )
+        .await
+    }
+
+    pub async fn own_dns(&self) -> Result<Value, SigmaError> {
+        self.get_value("/me/dns", &[]).await
+    }
+
+    pub async fn set_own_dns(&self, body: &Value) -> Result<Value, SigmaError> {
+        self.put_value("/me/dns", body).await
+    }
+
+    pub async fn resellers_dns(&self) -> Result<Value, SigmaError> {
+        self.get_value("/resellers/dns", &[]).await
+    }
+
+    pub async fn reseller_dns(&self, id: &str) -> Result<Value, SigmaError> {
+        self.get_value(&format!("/resellers/{}/dns", segment(id)), &[])
+            .await
+    }
+
+    pub async fn set_reseller_dns(&self, id: &str, body: &Value) -> Result<Value, SigmaError> {
+        self.put_value(&format!("/resellers/{}/dns", segment(id)), body)
+            .await
+    }
+
+    pub async fn replace_dns(&self, body: &Value) -> Result<Value, SigmaError> {
+        self.post_value("/resellers/dns/replace", body).await
+    }
+
+    pub async fn apply_dns(&self, body: &Value) -> Result<Value, SigmaError> {
+        self.post_value("/resellers/dns/apply", body).await
+    }
+
+    pub async fn dns_history(&self) -> Result<Value, SigmaError> {
+        self.get_value("/resellers/dns/history", &[]).await
+    }
+
+    pub async fn revert_dns(&self, batch: &str) -> Result<Value, SigmaError> {
+        self.send(
+            Method::POST,
+            &format!("/resellers/dns/history/{}/revert", segment(batch)),
+            &[],
+            None,
+        )
+        .await
+    }
+
+    pub async fn post_value(&self, path: &str, body: &Value) -> Result<Value, SigmaError> {
+        self.send(Method::POST, path, &[], Some(body)).await
+    }
+
+    pub async fn put_value(&self, path: &str, body: &Value) -> Result<Value, SigmaError> {
+        self.send(Method::PUT, path, &[], Some(body)).await
+    }
+
+    pub async fn delete_value(&self, path: &str) -> Result<Value, SigmaError> {
+        self.send(Method::DELETE, path, &[], None).await
+    }
+
     pub async fn packages(&self) -> Result<Collection<Package>, SigmaError> {
         self.get("/packages", &[]).await
     }

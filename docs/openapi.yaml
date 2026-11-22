@@ -293,6 +293,296 @@ paths:
                 $ref: "#/components/schemas/Envelope"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/customers/by-username/{username}:
+    get:
+      summary: Busca exata por username
+      parameters:
+        - { name: username, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Cliente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/coupons:
+    get:
+      summary: Lista cupons
+      responses:
+        "200":
+          description: Colecao
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+    post:
+      summary: Cria cupom
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JsonObject"
+      responses:
+        "201":
+          description: Cupom criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "422":
+          $ref: "#/components/responses/Validation"
+  /v1/coupons/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      summary: Mostra cupom
+      responses:
+        "200":
+          description: Cupom
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Remove cupom
+      responses:
+        "200":
+          description: Removido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /v1/resellers:
+    get:
+      summary: Lista revendas downline
+      responses:
+        "200":
+          description: Colecao
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+    post:
+      summary: Cria revenda
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JsonObject"
+      responses:
+        "201":
+          description: Revenda criada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "422":
+          $ref: "#/components/responses/Validation"
+  /v1/resellers/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      summary: Mostra revenda
+      responses:
+        "200":
+          description: Revenda
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Atualiza revenda
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JsonObject"
+      responses:
+        "200":
+          description: Revenda atualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /v1/resellers/{id}/credits/add:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Adiciona creditos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JsonObject"
+      responses:
+        "200":
+          description: Creditos adicionados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /v1/resellers/{id}/credits/remove:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Remove creditos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JsonObject"
+      responses:
+        "200":
+          description: Creditos removidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /v1/resellers/{id}/credits/recharge:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Recarrega creditos (auto-recarga da revenda)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JsonObject"
+      responses:
+        "200":
+          description: Creditos recarregados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /v1/me/dns:
+    get:
+      summary: Mostra o seu DNS
+      responses:
+        "200":
+          description: DNS
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+    put:
+      summary: Define ou limpa o seu DNS
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JsonObject"
+      responses:
+        "200":
+          description: DNS alterado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /v1/resellers/dns:
+    get:
+      summary: Lista DNS das revendas
+      responses:
+        "200":
+          description: Colecao
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /v1/resellers/{id}/dns:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      summary: Mostra o DNS de uma revenda
+      responses:
+        "200":
+          description: DNS
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+    put:
+      summary: Define ou limpa o DNS de uma revenda
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JsonObject"
+      responses:
+        "200":
+          description: DNS alterado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /v1/resellers/dns/replace:
+    post:
+      summary: Substitui DNS em lote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JsonObject"
+      responses:
+        "200":
+          description: Lote aplicado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /v1/resellers/dns/apply:
+    post:
+      summary: Copia o seu DNS para as revendas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JsonObject"
+      responses:
+        "200":
+          description: Aplicado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /v1/resellers/dns/history:
+    get:
+      summary: Historico de mudancas de DNS
+      responses:
+        "200":
+          description: Historico
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+  /v1/resellers/dns/history/{batch}/revert:
+    parameters:
+      - { name: batch, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Reverte um lote de DNS
+      responses:
+        "200":
+          description: Revertido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
 components:
   securitySchemes:
     bearerAuth:
@@ -314,6 +604,9 @@ components:
       properties:
         ok: { type: boolean }
         data: {}
+    JsonObject:
+      type: object
+      additionalProperties: true
     Error:
       type: object
       properties:

@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use sigma_core::{SigmaClient, SigmaConfig};
 use sigma_server::{app, AppState};
 use tower::ServiceExt;
-use wiremock::matchers::{method, path, query_param};
+use wiremock::matchers::{body_json, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn build_state(upstream: &MockServer, server_token: &str) -> AppState {
@@ -20,6 +20,25 @@ async fn json_body(response: axum::response::Response) -> Value {
         .await
         .expect("body");
     serde_json::from_slice(&bytes).expect("json")
+}
+
+fn request(method: &str, uri: &str) -> Request<Body> {
+    Request::builder()
+        .method(method)
+        .uri(uri)
+        .header("authorization", "Bearer server-token")
+        .body(Body::empty())
+        .unwrap()
+}
+
+fn request_json(method: &str, uri: &str, body: Value) -> Request<Body> {
+    Request::builder()
+        .method(method)
+        .uri(uri)
+        .header("authorization", "Bearer server-token")
+        .header("content-type", "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap()
 }
 
 #[tokio::test]
@@ -66,13 +85,7 @@ async fn me_encaminha_token_do_upstream_e_devolve_envelope() {
         .await;
 
     let response = app(build_state(&upstream, "server-token"))
-        .oneshot(
-            Request::builder()
-                .uri("/v1/me")
-                .header("authorization", "Bearer server-token")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(request("GET", "/v1/me"))
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
@@ -96,13 +109,7 @@ async fn customers_encaminha_query() {
         .await;
 
     let response = app(build_state(&upstream, "server-token"))
-        .oneshot(
-            Request::builder()
-                .uri("/v1/customers?page=2&per_page=5")
-                .header("authorization", "Bearer server-token")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(request("GET", "/v1/customers?page=2&per_page=5"))
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
@@ -124,15 +131,91 @@ async fn upstream_429_preserva_retry_after() {
         .await;
 
     let response = app(build_state(&upstream, "server-token"))
-        .oneshot(
-            Request::builder()
-                .uri("/v1/me")
-                .header("authorization", "Bearer server-token")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(request("GET", "/v1/me"))
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
     assert_eq!(response.headers().get("retry-after").unwrap(), "9");
+}
+
+#[tokio::test]
+async fn by_username_encaminha_path() {
+    let upstream = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/customers/by-username/abc123"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "data": {"id": "c1", "username": "abc123"}
+        })))
+        .mount(&upstream)
+        .await;
+
+    let response = app(build_state(&upstream, "server-token"))
+        .oneshot(request("GET", "/v1/customers/by-username/abc123"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json_body(response).await;
+    assert_eq!(body["data"]["username"], "abc123");
+}
+
+#[tokio::test]
+async fn coupons_lista() {
+    let upstream = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/coupons"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "data": [{"id": "cp1", "code": "PROMO"}]
+        })))
+        .mount(&upstream)
+        .await;
+
+    let response = app(build_state(&upstream, "server-token"))
+        .oneshot(request("GET", "/v1/coupons"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json_body(response).await;
+    assert_eq!(body["data"]["data"][0]["code"], "PROMO");
+}
+
+#[tokio::test]
+async fn reseller_credits_encaminha_body() {
+    let upstream = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/resellers/r1/credits/add"))
+        .and(body_json(json!({"credits": 10})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "data": {"updated": true}
+        })))
+        .mount(&upstream)
+        .await;
+
+    let response = app(build_state(&upstream, "server-token"))
+        .oneshot(request_json(
+            "POST",
+            "/v1/resellers/r1/credits/add",
+            json!({"credits": 10}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn dns_history_lista() {
+    let upstream = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/resellers/dns/history"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "data": [],
+            "pagination": {"current_page": 1, "total": 0}
+        })))
+        .mount(&upstream)
+        .await;
+
+    let response = app(build_state(&upstream, "server-token"))
+        .oneshot(request("GET", "/v1/resellers/dns/history"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
 }

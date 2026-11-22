@@ -1,8 +1,8 @@
 # sigma-api
 
 API em **Rust** para operar a **Sigma Reseller API v1** de ponta a ponta:
-perfil, clientes (criar, editar, renovar, trocar pacote/conexoes, cortesia,
-resync, migracao), pacotes, servidores e relatorios.
+perfil, clientes, cupons, revendas/creditos, DNS, pacotes, servidores e
+relatorios.
 
 O painel Sigma publica um contrato oficial (OpenAPI 3.1.0, 39 paths / 51
 operacoes). Este projeto **nao faz engenharia reversa**: consome o contrato
@@ -55,6 +55,7 @@ O token do painel **nunca** sai do servidor.
 | GET | `/openapi.json` | contrato OpenAPI |
 | GET | `/v1/me` | perfil da conta |
 | GET/POST | `/v1/customers` | lista/cria clientes |
+| GET | `/v1/customers/by-username/{username}` | busca exata |
 | GET/PUT/DELETE | `/v1/customers/{id}` | detalhe/edita/remove |
 | POST | `/v1/customers/{id}/renew` | renova |
 | PUT | `/v1/customers/{id}/package` | troca pacote |
@@ -62,9 +63,26 @@ O token do painel **nunca** sai do servidor.
 | POST | `/v1/customers/{id}/courtesy-days` | dias de cortesia |
 | POST | `/v1/customers/{id}/resync` | ressincroniza |
 | PUT | `/v1/customers/{id}/server-migration` | migra de servidor |
+| GET/POST | `/v1/coupons` | lista/cria cupons |
+| GET/DELETE | `/v1/coupons/{id}` | detalhe/remove cupom |
+| GET/POST | `/v1/resellers` | lista/cria revendas |
+| GET/PUT | `/v1/resellers/{id}` | detalhe/edita revenda |
+| POST | `/v1/resellers/{id}/credits/add` | adiciona creditos |
+| POST | `/v1/resellers/{id}/credits/remove` | remove creditos |
+| POST | `/v1/resellers/{id}/credits/recharge` | recarrega creditos |
+| GET/PUT | `/v1/me/dns` | DNS proprio |
+| GET | `/v1/resellers/dns` | DNS das revendas |
+| GET/PUT | `/v1/resellers/{id}/dns` | DNS de uma revenda |
+| POST | `/v1/resellers/dns/replace` | substitui em lote |
+| POST | `/v1/resellers/dns/apply` | copia seu DNS |
+| GET | `/v1/resellers/dns/history` | historico de DNS |
+| POST | `/v1/resellers/dns/history/{batch}/revert` | reverte lote |
 | GET | `/v1/packages` | pacotes |
 | GET | `/v1/servers` | servidores |
 | GET | `/v1/reports/{kind}` | relatorios oficiais |
+
+Cobre **todas as 41 operacoes autenticadas por token** da API oficial. As 10
+operacoes de `/me/webhooks*` exigem sessao do painel e ficam de fora.
 
 Erros seguem `{ "ok": false, "error": { "code", "message" } }` e preservam
 `Retry-After` quando o painel responde `429`.
