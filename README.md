@@ -69,9 +69,16 @@ A senha do painel **nunca** sai do servidor.
 | POST | `/v1/customers/{id}/change-package` | troca o plano |
 | POST | `/v1/customers/{id}/change-connections` | troca conexões |
 | PUT | `/v1/customers/{id}/toggle-status` | alterna Ativo/Inativo |
+| POST | `/v1/customers/{id}/courtesy-days` | +3 dias de cortesia (vence em ≤3 dias) |
+| PUT | `/v1/customers/{id}/server-migration` | migra servidor/plano |
+| PUT | `/v1/customers/{id}/asn-lock` | alterna trava ASN |
+| PUT | `/v1/customers/{id}/isp-lock` | alterna trava ISP |
 | GET | `/v1/resellers` | revendas da conta |
 | POST | `/v1/resellers` | cria revenda |
+| GET/PUT/DELETE | `/v1/resellers/{id}` | detalhe/edita/exclui revenda |
 | POST | `/v1/resellers/{id}/credits` | adiciona créditos |
+| POST | `/v1/resellers/{id}/credits/remove` | remove créditos |
+| PUT | `/v1/resellers/{id}/toggle-status` | alterna Ativo/Inativo da revenda |
 | GET | `/v1/packages` | planos/pacotes |
 | GET | `/v1/servers` | servidores |
 | GET | `/v1/credit-orders` | pedidos de credito |

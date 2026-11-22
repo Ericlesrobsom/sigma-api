@@ -97,6 +97,26 @@ enum CustomersCmd {
     Delete {
         id: String,
     },
+    /// Adiciona 3 dias de cortesia (cliente vence em ate 3 dias).
+    Courtesy {
+        id: String,
+    },
+    /// Migra para outro servidor/plano.
+    Migrate {
+        id: String,
+        #[arg(long = "server-id")]
+        server_id: String,
+        #[arg(long = "package-id")]
+        package_id: String,
+    },
+    /// Alterna a trava ASN.
+    AsnLock {
+        id: String,
+    },
+    /// Alterna a trava ISP.
+    IspLock {
+        id: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -114,6 +134,32 @@ enum ResellersCmd {
         reference: String,
         #[arg(long = "private-note", default_value = "")]
         private_note: String,
+    },
+    /// Mostra uma revenda.
+    Get {
+        id: String,
+    },
+    /// Atualiza campos graváveis com um JSON.
+    Update {
+        id: String,
+        json: String,
+    },
+    /// Remove créditos da revenda.
+    RemoveCredits {
+        id: String,
+        credits: f64,
+        #[arg(long, default_value = "")]
+        reference: String,
+        #[arg(long = "private-note", default_value = "")]
+        private_note: String,
+    },
+    /// Alterna Ativo/Inativo.
+    Toggle {
+        id: String,
+    },
+    /// Exclui a revenda.
+    Delete {
+        id: String,
     },
 }
 
@@ -174,6 +220,20 @@ async fn main() -> anyhow::Result<()> {
             }
             CustomersCmd::Toggle { id } => print(&client.toggle_customer_status(&id).await?)?,
             CustomersCmd::Delete { id } => print(&client.delete_customer(&id).await?)?,
+            CustomersCmd::Courtesy { id } => print(&client.add_courtesy_days(&id).await?)?,
+            CustomersCmd::Migrate {
+                id,
+                server_id,
+                package_id,
+            } => {
+                print(
+                    &client
+                        .migrate_customer(&id, &server_id, &package_id)
+                        .await?,
+                )?;
+            }
+            CustomersCmd::AsnLock { id } => print(&client.toggle_asn_lock(&id).await?)?,
+            CustomersCmd::IspLock { id } => print(&client.toggle_isp_lock(&id).await?)?,
         },
         Cmd::Packages => print(&client.packages().await?)?,
         Cmd::Servers => print(&client.servers().await?)?,
@@ -198,6 +258,25 @@ async fn main() -> anyhow::Result<()> {
                         .await?,
                 )?;
             }
+            ResellersCmd::Get { id } => print(&client.reseller(&id).await?)?,
+            ResellersCmd::Update { id, json } => {
+                let patch: Value = serde_json::from_str(&json)?;
+                print(&client.update_reseller(&id, &patch).await?)?;
+            }
+            ResellersCmd::RemoveCredits {
+                id,
+                credits,
+                reference,
+                private_note,
+            } => {
+                print(
+                    &client
+                        .remove_reseller_credits(&id, credits, &reference, &private_note)
+                        .await?,
+                )?;
+            }
+            ResellersCmd::Toggle { id } => print(&client.toggle_reseller_status(&id).await?)?,
+            ResellersCmd::Delete { id } => print(&client.delete_reseller(&id).await?)?,
         },
         Cmd::CustomersCount => print(&client.customers_count().await?)?,
         Cmd::CustomersCountByServer => print(&client.customers_count_by_server().await?)?,

@@ -443,6 +443,118 @@ impl SigmaClient {
         .await
     }
 
+    pub async fn add_courtesy_days(&self, id: &str) -> Result<Value, SigmaError> {
+        self.post_value(
+            &format!("/api/customers/{}/add-courtesy-days", segment(id)),
+            &json!({}),
+        )
+        .await
+    }
+
+    pub async fn migrate_customer(
+        &self,
+        id: &str,
+        server_id: &str,
+        package_id: &str,
+    ) -> Result<Value, SigmaError> {
+        self.put_value(
+            &format!("/api/customers/{}/server-migration", segment(id)),
+            &json!({ "server_id": server_id, "package_id": package_id }),
+        )
+        .await
+    }
+
+    pub async fn toggle_asn_lock(&self, id: &str) -> Result<Value, SigmaError> {
+        self.put_value(
+            &format!("/api/customers/{}/toggle-asn-lock", segment(id)),
+            &json!({}),
+        )
+        .await
+    }
+
+    pub async fn toggle_isp_lock(&self, id: &str) -> Result<Value, SigmaError> {
+        self.put_value(
+            &format!("/api/customers/{}/toggle-isp-lock", segment(id)),
+            &json!({}),
+        )
+        .await
+    }
+
+    pub async fn reseller(&self, id: &str) -> Result<Value, SigmaError> {
+        let lista = self.resellers().await?;
+        let arr = lista
+            .as_array()
+            .cloned()
+            .or_else(|| lista.get("data").and_then(|v| v.as_array()).cloned())
+            .unwrap_or_default();
+        arr.into_iter()
+            .find(|r| r.get("id").and_then(|v| v.as_str()) == Some(id))
+            .ok_or_else(|| SigmaError::Config(format!("revenda {id} nao encontrada")))
+    }
+
+    /// Atualiza revenda por patch, enviando o objeto completo como o painel exige.
+    pub async fn update_reseller(&self, id: &str, patch: &Value) -> Result<Value, SigmaError> {
+        const GRAVAVEIS: [&str; 12] = [
+            "username",
+            "password",
+            "name",
+            "email",
+            "telegram",
+            "whatsapp",
+            "note",
+            "role",
+            "servers",
+            "disable_after_days_without_recharge",
+            "need_reset_password",
+            "parent_can_edit_personal_data",
+        ];
+        let mut atual = self.reseller(id).await?;
+        let obj = atual
+            .as_object_mut()
+            .ok_or_else(|| SigmaError::Config("revenda atual sem objeto".into()))?;
+        let patch_obj = patch
+            .as_object()
+            .ok_or_else(|| SigmaError::Config("patch da revenda precisa ser objeto".into()))?;
+        for (chave, valor) in patch_obj {
+            if GRAVAVEIS.contains(&chave.as_str()) {
+                obj.insert(chave.clone(), valor.clone());
+            }
+        }
+        self.put_value(&format!("/api/resellers/{}", segment(id)), &atual)
+            .await
+    }
+
+    pub async fn remove_reseller_credits(
+        &self,
+        id: &str,
+        credits: f64,
+        reference: &str,
+        private_note: &str,
+    ) -> Result<Value, SigmaError> {
+        self.post_value(
+            &format!("/api/resellers/{}/remove-credits", segment(id)),
+            &json!({
+                "credits": credits,
+                "reference": reference,
+                "private_note": private_note
+            }),
+        )
+        .await
+    }
+
+    pub async fn toggle_reseller_status(&self, id: &str) -> Result<Value, SigmaError> {
+        self.put_value(
+            &format!("/api/resellers/{}/toggle-status", segment(id)),
+            &json!({}),
+        )
+        .await
+    }
+
+    pub async fn delete_reseller(&self, id: &str) -> Result<Value, SigmaError> {
+        self.delete_value(&format!("/api/resellers/{}", segment(id)))
+            .await
+    }
+
     pub async fn post_value(&self, path: &str, body: &Value) -> Result<Value, SigmaError> {
         self.send(Method::POST, path, &[], Some(body)).await
     }

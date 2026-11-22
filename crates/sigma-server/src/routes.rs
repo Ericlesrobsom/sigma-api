@@ -42,6 +42,21 @@ struct AddCreditsBody {
     create_manual_credit_order: bool,
 }
 
+#[derive(Debug, Deserialize)]
+struct RemoveCreditsBody {
+    credits: f64,
+    #[serde(default)]
+    reference: String,
+    #[serde(default)]
+    private_note: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MigrationBody {
+    server_id: String,
+    package_id: String,
+}
+
 pub fn router(state: AppState) -> Router {
     let protected = Router::new()
         .route("/v1/me", get(me))
@@ -66,13 +81,31 @@ pub fn router(state: AppState) -> Router {
             "/v1/customers/{id}/toggle-status",
             put(toggle_customer_status),
         )
+        .route("/v1/customers/{id}/courtesy-days", post(add_courtesy_days))
+        .route("/v1/customers/{id}/server-migration", put(migrate_customer))
+        .route("/v1/customers/{id}/asn-lock", put(toggle_asn_lock))
+        .route("/v1/customers/{id}/isp-lock", put(toggle_isp_lock))
         .route("/v1/packages", get(packages))
         .route("/v1/servers", get(servers))
         .route("/v1/credit-orders", get(credit_orders))
         .route("/v1/credit-transactions", get(credit_transactions))
         .route("/v1/credit-summary", get(credit_summary))
         .route("/v1/resellers", get(resellers).post(create_reseller))
+        .route(
+            "/v1/resellers/{id}",
+            get(get_reseller)
+                .put(update_reseller)
+                .delete(delete_reseller),
+        )
         .route("/v1/resellers/{id}/credits", post(add_reseller_credits))
+        .route(
+            "/v1/resellers/{id}/credits/remove",
+            post(remove_reseller_credits),
+        )
+        .route(
+            "/v1/resellers/{id}/toggle-status",
+            put(toggle_reseller_status),
+        )
         .route("/v1/customers-count", get(customers_count))
         .route(
             "/v1/customers-count-by-server",
@@ -277,4 +310,84 @@ async fn add_reseller_credits(
             )
             .await?,
     ))
+}
+
+async fn add_courtesy_days(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(envelope::ok(state.client.add_courtesy_days(&id).await?))
+}
+
+async fn migrate_customer(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(body): Json<MigrationBody>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(envelope::ok(
+        state
+            .client
+            .migrate_customer(&id, &body.server_id, &body.package_id)
+            .await?,
+    ))
+}
+
+async fn toggle_asn_lock(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(envelope::ok(state.client.toggle_asn_lock(&id).await?))
+}
+
+async fn toggle_isp_lock(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(envelope::ok(state.client.toggle_isp_lock(&id).await?))
+}
+
+async fn get_reseller(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(envelope::ok(state.client.reseller(&id).await?))
+}
+
+async fn update_reseller(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(patch): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(envelope::ok(
+        state.client.update_reseller(&id, &patch).await?,
+    ))
+}
+
+async fn remove_reseller_credits(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(body): Json<RemoveCreditsBody>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(envelope::ok(
+        state
+            .client
+            .remove_reseller_credits(&id, body.credits, &body.reference, &body.private_note)
+            .await?,
+    ))
+}
+
+async fn toggle_reseller_status(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(envelope::ok(
+        state.client.toggle_reseller_status(&id).await?,
+    ))
+}
+
+async fn delete_reseller(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(envelope::ok(state.client.delete_reseller(&id).await?))
 }

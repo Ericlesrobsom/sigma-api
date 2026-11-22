@@ -215,3 +215,99 @@ async fn adiciona_creditos_revenda() {
         .expect("creditos");
     assert_eq!(out["data"]["credits"], 20);
 }
+
+#[tokio::test]
+async fn atualiza_revenda_com_merge() {
+    let server = MockServer::start().await;
+    mock_login(&server).await;
+    Mock::given(method("GET"))
+        .and(path("/api/resellers/list"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {
+                "id": "r1",
+                "username": "rev",
+                "name": "Antigo",
+                "note": "n",
+                "role": "reseller"
+            }
+        ])))
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/resellers/r1"))
+        .and(body_json(json!({
+            "id": "r1",
+            "username": "rev",
+            "name": "Novo",
+            "note": "n",
+            "role": "reseller"
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "data": {"id": "r1", "name": "Novo"}
+        })))
+        .mount(&server)
+        .await;
+
+    let out = client(&server)
+        .update_reseller("r1", &json!({"name": "Novo"}))
+        .await
+        .expect("revenda");
+    assert_eq!(out["data"]["name"], "Novo");
+}
+
+#[tokio::test]
+async fn acoes_extras_do_cliente() {
+    let server = MockServer::start().await;
+    mock_login(&server).await;
+    Mock::given(method("POST"))
+        .and(path("/api/customers/c1/add-courtesy-days"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data": {}})))
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/customers/c1/server-migration"))
+        .and(body_json(json!({"server_id": "s2", "package_id": "p2"})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data": {}})))
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/customers/c1/toggle-asn-lock"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data": {}})))
+        .mount(&server)
+        .await;
+    Mock::given(method("PUT"))
+        .and(path("/api/customers/c1/toggle-isp-lock"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data": {}})))
+        .mount(&server)
+        .await;
+
+    let c = client(&server);
+    c.add_courtesy_days("c1").await.expect("cortesia");
+    c.migrate_customer("c1", "s2", "p2").await.expect("migrar");
+    c.toggle_asn_lock("c1").await.expect("asn");
+    c.toggle_isp_lock("c1").await.expect("isp");
+}
+
+#[tokio::test]
+async fn remove_creditos_revenda() {
+    let server = MockServer::start().await;
+    mock_login(&server).await;
+    Mock::given(method("POST"))
+        .and(path("/api/resellers/r1/remove-credits"))
+        .and(body_json(json!({
+            "credits": 5.0,
+            "reference": "",
+            "private_note": ""
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "data": {"id": "r1", "credits": 15}
+        })))
+        .mount(&server)
+        .await;
+
+    let out = client(&server)
+        .remove_reseller_credits("r1", 5.0, "", "")
+        .await
+        .expect("remover");
+    assert_eq!(out["data"]["credits"], 15);
+}

@@ -202,6 +202,52 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/Envelope"
+  /v1/customers/{id}/courtesy-days:
+    post:
+      summary: Adiciona 3 dias de cortesia (vence em ate 3 dias)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "400":
+          $ref: "#/components/responses/Validation"
+  /v1/customers/{id}/server-migration:
+    put:
+      summary: Migra o cliente para outro servidor/plano
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [server_id, package_id]
+              properties:
+                server_id: { type: string }
+                package_id: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "422":
+          $ref: "#/components/responses/Validation"
+  /v1/customers/{id}/asn-lock:
+    put:
+      summary: Alterna a trava ASN
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+  /v1/customers/{id}/isp-lock:
+    put:
+      summary: Alterna a trava ISP
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
   /v1/packages:
     get:
       summary: Planos/pacotes
@@ -287,6 +333,74 @@ paths:
           $ref: "#/components/responses/Envelope"
         "422":
           $ref: "#/components/responses/Validation"
+  /v1/resellers/{id}:
+    get:
+      summary: Mostra uma revenda
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Atualiza campos gravaveis da revenda (merge)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username: { type: string }
+                password: { type: string }
+                name: { type: string }
+                email: { type: string }
+                telegram: { type: string }
+                whatsapp: { type: string }
+                note: { type: string }
+                role: { type: string }
+                servers: { type: array, items: { type: string } }
+                disable_after_days_without_recharge: { type: integer }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+    delete:
+      summary: Exclui a revenda
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+  /v1/resellers/{id}/credits/remove:
+    post:
+      summary: Remove creditos da revenda
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [credits]
+              properties:
+                credits: { type: number, minimum: 0.001 }
+                reference: { type: string }
+                private_note: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+  /v1/resellers/{id}/toggle-status:
+    put:
+      summary: Alterna Ativo/Inativo da revenda
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
   /v1/customers-count:
     get:
       summary: Contagem de clientes
