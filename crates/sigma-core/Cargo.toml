@@ -12,6 +12,8 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 url.workspace = true
+sha2 = "0.10"
+itoa = "1"
 
 [dev-dependencies]
 wiremock.workspace = true

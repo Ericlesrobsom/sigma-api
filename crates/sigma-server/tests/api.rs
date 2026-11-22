@@ -6,13 +6,43 @@ use serde_json::{json, Value};
 use sigma_core::{SigmaClient, SigmaConfig};
 use sigma_server::{app, AppState};
 use tower::ServiceExt;
-use wiremock::matchers::{body_json, method, path, query_param};
+use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn build_state(upstream: &MockServer, server_token: &str) -> AppState {
-    let client = SigmaClient::new(SigmaConfig::new(upstream.uri(), "upstream-token"))
+    let client = SigmaClient::new(SigmaConfig::new(upstream.uri(), "revenda", "senha"))
         .expect("cliente upstream");
     AppState::new(Arc::new(client), server_token)
+}
+
+async fn mock_login(upstream: &MockServer) {
+    Mock::given(method("POST"))
+        .and(path("/api/cap/challenge"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "challenge": {"c": 1, "s": 32, "d": 1},
+            "token": "cap-token-teste",
+            "expires": 9999999999999u64
+        })))
+        .mount(upstream)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/cap/redeem"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "success": true,
+            "token": "cap-redeem-token",
+            "expires": 9999999999999u64
+        })))
+        .mount(upstream)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/auth/login"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "id": "u1",
+            "username": "revenda",
+            "token": "session-token"
+        })))
+        .mount(upstream)
+        .await;
 }
 
 async fn json_body(response: axum::response::Response) -> Value {
@@ -22,22 +52,11 @@ async fn json_body(response: axum::response::Response) -> Value {
     serde_json::from_slice(&bytes).expect("json")
 }
 
-fn request(method: &str, uri: &str) -> Request<Body> {
+fn request(uri: &str) -> Request<Body> {
     Request::builder()
-        .method(method)
         .uri(uri)
         .header("authorization", "Bearer server-token")
         .body(Body::empty())
-        .unwrap()
-}
-
-fn request_json(method: &str, uri: &str, body: Value) -> Request<Body> {
-    Request::builder()
-        .method(method)
-        .uri(uri)
-        .header("authorization", "Bearer server-token")
-        .header("content-type", "application/json")
-        .body(Body::from(body.to_string()))
         .unwrap()
 }
 
@@ -74,18 +93,21 @@ async fn v1_exige_bearer() {
 }
 
 #[tokio::test]
-async fn me_encaminha_token_do_upstream_e_devolve_envelope() {
+async fn me_faz_login_no_painel_e_devolve_envelope() {
     let upstream = MockServer::start().await;
+    mock_login(&upstream).await;
     Mock::given(method("GET"))
-        .and(path("/me"))
+        .and(path("/api/auth/me"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "data": {"id": "u1", "username": "revenda", "creditsBalance": 10}
+            "id": "u1",
+            "username": "revenda",
+            "credits": 10
         })))
         .mount(&upstream)
         .await;
 
     let response = app(build_state(&upstream, "server-token"))
-        .oneshot(request("GET", "/v1/me"))
+        .oneshot(request("/v1/me"))
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
@@ -95,127 +117,45 @@ async fn me_encaminha_token_do_upstream_e_devolve_envelope() {
 }
 
 #[tokio::test]
-async fn customers_encaminha_query() {
+async fn clientes_encaminham_per_page() {
     let upstream = MockServer::start().await;
+    mock_login(&upstream).await;
     Mock::given(method("GET"))
-        .and(path("/customers"))
-        .and(query_param("page", "2"))
-        .and(query_param("per_page", "5"))
+        .and(path("/api/customers"))
+        .and(query_param("perPage", "5"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "data": [],
-            "meta": {"current_page": 2, "per_page": 5, "total": 0}
+            "data": [{"id": "c1"}],
+            "meta": {"current_page": 1, "total": 1}
         })))
         .mount(&upstream)
         .await;
 
     let response = app(build_state(&upstream, "server-token"))
-        .oneshot(request("GET", "/v1/customers?page=2&per_page=5"))
+        .oneshot(request("/v1/customers?page=1&perPage=5"))
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     let body = json_body(response).await;
-    assert_eq!(body["data"]["meta"]["total"], 0);
+    assert_eq!(body["data"]["data"][0]["id"], "c1");
 }
 
 #[tokio::test]
-async fn upstream_429_preserva_retry_after() {
+async fn resumo_de_creditos() {
     let upstream = MockServer::start().await;
+    mock_login(&upstream).await;
     Mock::given(method("GET"))
-        .and(path("/me"))
-        .respond_with(
-            ResponseTemplate::new(429)
-                .insert_header("retry-after", "9")
-                .set_body_json(json!({"message": "Too Many Requests"})),
-        )
-        .mount(&upstream)
-        .await;
-
-    let response = app(build_state(&upstream, "server-token"))
-        .oneshot(request("GET", "/v1/me"))
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
-    assert_eq!(response.headers().get("retry-after").unwrap(), "9");
-}
-
-#[tokio::test]
-async fn by_username_encaminha_path() {
-    let upstream = MockServer::start().await;
-    Mock::given(method("GET"))
-        .and(path("/customers/by-username/abc123"))
+        .and(path("/api/reports/credit-transactions/summary"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "data": {"id": "c1", "username": "abc123"}
+            "data": {"credits_total": 10}
         })))
         .mount(&upstream)
         .await;
 
     let response = app(build_state(&upstream, "server-token"))
-        .oneshot(request("GET", "/v1/customers/by-username/abc123"))
+        .oneshot(request("/v1/credit-summary"))
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     let body = json_body(response).await;
-    assert_eq!(body["data"]["username"], "abc123");
-}
-
-#[tokio::test]
-async fn coupons_lista() {
-    let upstream = MockServer::start().await;
-    Mock::given(method("GET"))
-        .and(path("/coupons"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "data": [{"id": "cp1", "code": "PROMO"}]
-        })))
-        .mount(&upstream)
-        .await;
-
-    let response = app(build_state(&upstream, "server-token"))
-        .oneshot(request("GET", "/v1/coupons"))
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = json_body(response).await;
-    assert_eq!(body["data"]["data"][0]["code"], "PROMO");
-}
-
-#[tokio::test]
-async fn reseller_credits_encaminha_body() {
-    let upstream = MockServer::start().await;
-    Mock::given(method("POST"))
-        .and(path("/resellers/r1/credits/add"))
-        .and(body_json(json!({"credits": 10})))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "data": {"updated": true}
-        })))
-        .mount(&upstream)
-        .await;
-
-    let response = app(build_state(&upstream, "server-token"))
-        .oneshot(request_json(
-            "POST",
-            "/v1/resellers/r1/credits/add",
-            json!({"credits": 10}),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-}
-
-#[tokio::test]
-async fn dns_history_lista() {
-    let upstream = MockServer::start().await;
-    Mock::given(method("GET"))
-        .and(path("/resellers/dns/history"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "data": [],
-            "pagination": {"current_page": 1, "total": 0}
-        })))
-        .mount(&upstream)
-        .await;
-
-    let response = app(build_state(&upstream, "server-token"))
-        .oneshot(request("GET", "/v1/resellers/dns/history"))
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(body["data"]["data"]["credits_total"], 10);
 }

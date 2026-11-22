@@ -4,6 +4,12 @@ pub enum SigmaError {
     #[error("configuracao: {0}")]
     Config(String),
 
+    #[error("cap: {0}")]
+    Cap(String),
+
+    #[error("login: {0}")]
+    Login(String),
+
     #[error("http: {0}")]
     Http(#[from] reqwest::Error),
 

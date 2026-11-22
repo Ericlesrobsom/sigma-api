@@ -1,32 +1,37 @@
 # sigma-api
 
-API em **Rust** para operar a **Sigma Reseller API v1** de ponta a ponta:
-perfil, clientes, cupons, revendas/creditos, DNS, pacotes, servidores e
-relatorios.
+API em **Rust** que **loga no painel Sigma como revenda** (usuário/senha +
+CAP) e expõe os dados disponíveis para a conta. Não precisa de token de API
+administrativo — o token de revenda é criado pela própria sessão.
 
-O painel Sigma publica um contrato oficial (OpenAPI 3.1.0, 39 paths / 51
-operacoes). Este projeto **nao faz engenharia reversa**: consome o contrato
-oficial com Bearer token.
+## Por que login e não API oficial
+
+A Sigma Reseller API oficial (Bearer token) é liberada pelo administrador.
+Uma revenda só tem usuário e senha do painel. Este serviço faz o mesmo
+caminho do navegador:
+
+1. `POST /api/cap/challenge` → desafio proof-of-work;
+2. resolve o CAP (FNV-1a + PRNG + SHA-256, porte do `capjs-core`);
+3. `POST /api/cap/redeem` → token do CAP;
+4. `POST /api/auth/login` com `X-Cap-Capable: 1` → token de sessão;
+5. usa `Authorization: Bearer <sessão>` em `/api/*`;
+6. em `401`, refaz o login sozinho.
 
 ## Pacotes
 
 | Pacote | Binario | O que e |
 |---|---|---|
-| `sigma-core` | — | Cliente HTTP tipado, modelos, erros e rate limit |
+| `sigma-core` | — | Login, CAP, sessão e cliente HTTP do painel |
 | `sigma-server` | `sigma-serve` | API REST local em JSON, documentada em OpenAPI |
 | `sigma-cli` | `sigma` | CLI para operacao manual e diagnostico |
 
 ## Inicio rapido
 
-Pre-requisitos: Rust stable (edition 2021) e um token de revenda.
-
 ```bash
 cp .env.example .env
-# edite SIGMA_API_TOKEN (token do painel) e SIGMA_SERVER_TOKEN (token local)
+# edite SIGMA_USER, SIGMA_PASS e SIGMA_SERVER_TOKEN
 cargo run -p sigma-server --bin sigma-serve
 ```
-
-O servidor sobe em `http://127.0.0.1:8787`.
 
 ```bash
 curl -s http://127.0.0.1:8787/health
@@ -35,76 +40,63 @@ curl -s -H "Authorization: Bearer $SIGMA_SERVER_TOKEN" \
   http://127.0.0.1:8787/v1/me
 ```
 
-CLI (fala direto com o painel, sem passar pelo servidor local):
+CLI (fala direto com o painel, fazendo login proprio):
 
 ```bash
 cargo run -p sigma-cli -- me
-cargo run -p sigma-cli -- customers list --page 1 --per-page 20
+cargo run -p sigma-cli -- customers list --per-page 20
 cargo run -p sigma-cli -- packages
-cargo run -p sigma-cli -- reports customers-count
+cargo run -p sigma-cli -- credit-summary
 ```
 
 ## Endpoints do servidor
 
 Todas as rotas `/v1/*` exigem `Authorization: Bearer $SIGMA_SERVER_TOKEN`.
-O token do painel **nunca** sai do servidor.
+A senha do painel **nunca** sai do servidor.
 
 | Metodo | Rota | Funcao |
 |---|---|---|
 | GET | `/health` | health check publico |
 | GET | `/openapi.json` | contrato OpenAPI |
-| GET | `/v1/me` | perfil da conta |
-| GET/POST | `/v1/customers` | lista/cria clientes |
-| GET | `/v1/customers/by-username/{username}` | busca exata |
-| GET/PUT/DELETE | `/v1/customers/{id}` | detalhe/edita/remove |
-| POST | `/v1/customers/{id}/renew` | renova |
-| PUT | `/v1/customers/{id}/package` | troca pacote |
-| PUT | `/v1/customers/{id}/connections` | troca conexoes |
-| POST | `/v1/customers/{id}/courtesy-days` | dias de cortesia |
-| POST | `/v1/customers/{id}/resync` | ressincroniza |
-| PUT | `/v1/customers/{id}/server-migration` | migra de servidor |
-| GET/POST | `/v1/coupons` | lista/cria cupons |
-| GET/DELETE | `/v1/coupons/{id}` | detalhe/remove cupom |
-| GET/POST | `/v1/resellers` | lista/cria revendas |
-| GET/PUT | `/v1/resellers/{id}` | detalhe/edita revenda |
-| POST | `/v1/resellers/{id}/credits/add` | adiciona creditos |
-| POST | `/v1/resellers/{id}/credits/remove` | remove creditos |
-| POST | `/v1/resellers/{id}/credits/recharge` | recarrega creditos |
-| GET/PUT | `/v1/me/dns` | DNS proprio |
-| GET | `/v1/resellers/dns` | DNS das revendas |
-| GET/PUT | `/v1/resellers/{id}/dns` | DNS de uma revenda |
-| POST | `/v1/resellers/dns/replace` | substitui em lote |
-| POST | `/v1/resellers/dns/apply` | copia seu DNS |
-| GET | `/v1/resellers/dns/history` | historico de DNS |
-| POST | `/v1/resellers/dns/history/{batch}/revert` | reverte lote |
-| GET | `/v1/packages` | pacotes |
+| GET | `/v1/me` | perfil, creditos e permissoes |
+| GET | `/v1/customers` | clientes (`page`, `perPage`, `username`, `status`, `isTrial`) |
+| GET | `/v1/customers/by-username/{username}` | busca por username |
+| GET | `/v1/customers/{id}` | detalhe do cliente |
+| GET | `/v1/packages` | planos/pacotes |
 | GET | `/v1/servers` | servidores |
-| GET | `/v1/reports/{kind}` | relatorios oficiais |
+| GET | `/v1/credit-orders` | pedidos de credito |
+| GET | `/v1/credit-transactions` | extrato (`page`) |
+| GET | `/v1/credit-summary` | resumo do extrato |
+| GET | `/v1/resellers` | revendas da conta |
+| GET | `/v1/customers-count` | contagem de clientes |
+| GET | `/v1/customers-count-by-server` | contagem por servidor |
+| GET | `/v1/expiring` | clientes a vencer |
+| GET | `/v1/notices` | avisos do painel |
 
-Cobre **todas as 41 operacoes autenticadas por token** da API oficial. As 10
-operacoes de `/me/webhooks*` exigem sessao do painel e ficam de fora.
-
-Erros seguem `{ "ok": false, "error": { "code", "message" } }` e preservam
-`Retry-After` quando o painel responde `429`.
+Hoje o servico e **somente leitura**. Criar/editar/renovar cliente exige
+descobrir os endpoints de escrita do painel (o fluxo da UI ainda nao foi
+capturado); nao inventamos rota nem body.
 
 ## Configuracao
 
 | Variavel | Obrigatoria | Descricao |
 |---|---|---|
-| `SIGMA_API_BASE_URL` | nao | default `https://espaceoneplay.sigmab.pro/api/reseller-api/v1` |
-| `SIGMA_API_TOKEN` | sim | token de revenda (Bearer) |
+| `SIGMA_PANEL_URL` | nao | default `https://espaceoneplay.sigmab.pro` |
+| `SIGMA_USER` | sim | usuario/e-mail da revenda |
+| `SIGMA_PASS` | sim | senha da revenda |
 | `SIGMA_SERVER_TOKEN` | sim | token local exigido nas rotas `/v1/*` |
 | `SIGMA_BIND` | nao | default `127.0.0.1:8787` |
 | `SIGMA_TIMEOUT_SECS` | nao | default `30` |
 
-## Seguranca
+## Limites conhecidos
 
-- Tokens apenas em variaveis de ambiente; `.env` e ignorado.
-- O servidor nao expoe o token do painel em logs nem em respostas.
-- Rate limit oficial: 120 req/min por usuario/tenant; `429` + `Retry-After`.
-- Webhooks (`/me/webhooks*`) exigem sessao do painel e **nao** sao expostos
-  por este servico; configure no painel.
-- Escopos do token devem ser os minimos necessarios.
+- O painel limita tentativas de login (429). O servidor loga **uma vez** e
+  reusa a sessao; nao reinicie em loop.
+- A conta `revenda-pos` so enxerga os proprios clientes/revendas; 403/404
+  do painel sao repassados.
+- CAP e obrigatorio: sem proof-of-work o login retorna
+  `422 Please complete the human verification`.
+- Webhooks e configuracoes globais nao existem para revenda.
 
 ## Desenvolvimento
 
@@ -115,17 +107,14 @@ cargo test --workspace
 python scripts/openapi_to_json.py
 ```
 
-O CI roda os quatro passos. O workflow de Docker publica no GHCR em tags `v*`.
+Testes: CAP com vetor real (80/80), login com mock, servidor com sessao
+mockada. Em producao, valide primeiro `GET /v1/me`.
 
 ## Docker
 
 ```bash
 docker build -t sigma-api .
 docker run --rm -p 8787:8787 \
-  -e SIGMA_API_TOKEN -e SIGMA_SERVER_TOKEN \
+  -e SIGMA_USER -e SIGMA_PASS -e SIGMA_SERVER_TOKEN \
   sigma-api
 ```
-
-## Licenca
-
-Proprietario. Nao redistribua tokens, dados de clientes ou o bundle do painel.

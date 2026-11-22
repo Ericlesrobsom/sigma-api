@@ -1,38 +1,47 @@
 use crate::error::SigmaError;
 
-/// Configuração do cliente da API oficial.
+/// Configuração do acesso ao painel como revenda.
 #[derive(Clone, Debug)]
 pub struct SigmaConfig {
-    /// Base sem barra final. Default: painel ESPACEONEPLAY.
-    pub base_url: String,
-    /// Token de revenda (Bearer). Obrigatório.
-    pub token: String,
-    /// Timeout por chamada.
+    /// Raiz do painel, sem barra final. Ex.: https://espaceoneplay.sigmab.pro
+    pub panel_url: String,
+    pub username: String,
+    pub password: String,
     pub timeout_secs: u64,
 }
 
 impl SigmaConfig {
-    pub fn new(base_url: impl Into<String>, token: impl Into<String>) -> Self {
+    pub fn new(
+        panel_url: impl Into<String>,
+        username: impl Into<String>,
+        password: impl Into<String>,
+    ) -> Self {
         Self {
-            base_url: base_url.into().trim_end_matches('/').to_string(),
-            token: token.into(),
+            panel_url: panel_url.into().trim_end_matches('/').to_string(),
+            username: username.into(),
+            password: password.into(),
             timeout_secs: 30,
         }
     }
 
     pub fn from_env() -> Result<Self, SigmaError> {
-        let base_url = std::env::var("SIGMA_API_BASE_URL")
-            .unwrap_or_else(|_| "https://espaceoneplay.sigmab.pro/api/reseller-api/v1".into());
-        let token = std::env::var("SIGMA_API_TOKEN")
-            .map_err(|_| SigmaError::Config("SIGMA_API_TOKEN nao definido".into()))?;
-        if token.trim().is_empty() {
-            return Err(SigmaError::Config("SIGMA_API_TOKEN vazio".into()));
+        let panel_url = std::env::var("SIGMA_PANEL_URL")
+            .unwrap_or_else(|_| "https://espaceoneplay.sigmab.pro".into());
+        let username = std::env::var("SIGMA_USER")
+            .map_err(|_| SigmaError::Config("SIGMA_USER nao definido".into()))?;
+        let password = std::env::var("SIGMA_PASS")
+            .map_err(|_| SigmaError::Config("SIGMA_PASS nao definido".into()))?;
+        if username.trim().is_empty() {
+            return Err(SigmaError::Config("SIGMA_USER vazio".into()));
+        }
+        if password.is_empty() {
+            return Err(SigmaError::Config("SIGMA_PASS vazio".into()));
         }
         let timeout_secs = std::env::var("SIGMA_TIMEOUT_SECS")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(30);
-        Ok(Self::new(base_url, token.trim()).with_timeout(timeout_secs))
+        Ok(Self::new(panel_url, username.trim(), password).with_timeout(timeout_secs))
     }
 
     pub fn with_timeout(mut self, secs: u64) -> Self {

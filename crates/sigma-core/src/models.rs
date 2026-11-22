@@ -202,12 +202,14 @@ pub struct CustomerQuery {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub page: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "perPage")]
     pub per_page: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub username: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "isTrial")]
     pub is_trial: Option<String>,
 }
 
@@ -218,7 +220,7 @@ impl CustomerQuery {
             out.push(("page".into(), v.to_string()));
         }
         if let Some(v) = self.per_page {
-            out.push(("per_page".into(), v.to_string()));
+            out.push(("perPage".into(), v.to_string()));
         }
         if let Some(v) = self.username.as_deref().filter(|s| !s.is_empty()) {
             out.push(("username".into(), v.to_string()));
@@ -227,7 +229,7 @@ impl CustomerQuery {
             out.push(("status".into(), v.to_string()));
         }
         if let Some(v) = self.is_trial.as_deref().filter(|s| !s.is_empty()) {
-            out.push(("is_trial".into(), v.to_string()));
+            out.push(("isTrial".into(), v.to_string()));
         }
         out
     }

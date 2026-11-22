@@ -13,7 +13,7 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or_else(|_| EnvFilter::new("sigma_serve=info,tower_http=info"));
     tracing_subscriber::fmt().with_env_filter(filter).init();
 
-    let config = SigmaConfig::from_env().context("config da API oficial")?;
+    let config = SigmaConfig::from_env().context("config do painel")?;
     let server_token = std::env::var("SIGMA_SERVER_TOKEN")
         .context("SIGMA_SERVER_TOKEN nao definido (token do nosso servidor)")?;
     if server_token.trim().is_empty() {

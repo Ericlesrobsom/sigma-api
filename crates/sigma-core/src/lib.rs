@@ -4,6 +4,7 @@
 //! Autenticação: `Authorization: Bearer <token>`.
 //! Rate limit: 120 req/min por usuário/tenant; `429` traz `Retry-After`.
 
+pub mod cap;
 pub mod client;
 pub mod config;
 pub mod error;
