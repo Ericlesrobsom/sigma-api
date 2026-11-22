@@ -156,8 +156,18 @@ mockada. Em producao, valide primeiro `GET /v1/me`.
 ## Docker
 
 ```bash
-docker build -t sigma-api .
-docker run --rm -p 8787:8787 \
-  -e SIGMA_USER -e SIGMA_PASS -e SIGMA_SERVER_TOKEN \
-  sigma-api
+docker run -d --name sigma-api -p 8787:8787 \
+  -e SIGMA_USER='seu-usuario' \
+  -e SIGMA_PASS='sua-senha' \
+  -e SIGMA_SERVER_TOKEN='token-local-longo' \
+  ghcr.io/ericlesrobsom/sigma-api:0.1.0
 ```
+
+O Docker baixa a imagem sozinho se ela não existir. Depois:
+
+```bash
+curl -H "Authorization: Bearer token-local-longo" http://127.0.0.1:8787/v1/me
+```
+
+Se o pacote do GHCR estiver privado, rode `docker login ghcr.io` uma vez
+(com um PAT com `read:packages`) antes.
