@@ -555,6 +555,50 @@ impl SigmaClient {
             .await
     }
 
+    pub async fn live_connections(
+        &self,
+        server_id: &str,
+        page: u32,
+        per_page: u32,
+    ) -> Result<Value, SigmaError> {
+        self.get_value(
+            &format!("/api/customers/live-connections/{}", segment(server_id)),
+            &[
+                ("page".into(), page.to_string()),
+                ("perPage".into(), per_page.to_string()),
+            ],
+        )
+        .await
+    }
+
+    /// Link público do BotBot: POST sem login cria um teste no servidor.
+    pub async fn chatbot_link(&self, server_id: &str) -> Result<Value, SigmaError> {
+        let me = self.me().await?;
+        let user_id = me
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| SigmaError::Config("me sem id".into()))?;
+        Ok(json!({
+            "url": format!(
+                "{}/api/chatbot/{}/{}",
+                self.base,
+                segment(user_id),
+                segment(server_id)
+            )
+        }))
+    }
+
+    /// Cria um teste real via link público do BotBot (sem sessão).
+    pub async fn create_chatbot_test(&self, server_id: &str) -> Result<Value, SigmaError> {
+        let link = self.chatbot_link(server_id).await?;
+        let url = link
+            .get("url")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| SigmaError::Config("link do chatbot sem url".into()))?;
+        let resp = self.http.post(url).send().await?;
+        parse_response(resp).await
+    }
+
     pub async fn post_value(&self, path: &str, body: &Value) -> Result<Value, SigmaError> {
         self.send(Method::POST, path, &[], Some(body)).await
     }

@@ -57,6 +57,19 @@ struct MigrationBody {
     package_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct LiveQuery {
+    #[serde(default)]
+    page: Option<u32>,
+    #[serde(default, alias = "perPage")]
+    per_page: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ChatbotBody {
+    server_id: String,
+}
+
 pub fn router(state: AppState) -> Router {
     let protected = Router::new()
         .route("/v1/me", get(me))
@@ -113,6 +126,9 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/v1/expiring", get(expiring))
         .route("/v1/notices", get(notices))
+        .route("/v1/live-connections/{server_id}", get(live_connections))
+        .route("/v1/chatbot/link/{server_id}", get(chatbot_link))
+        .route("/v1/chatbot/tests", post(create_chatbot_test))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             require_bearer,
@@ -390,4 +406,37 @@ async fn delete_reseller(
     Path(id): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     Ok(envelope::ok(state.client.delete_reseller(&id).await?))
+}
+
+async fn live_connections(
+    State(state): State<AppState>,
+    Path(server_id): Path<String>,
+    Query(query): Query<LiveQuery>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(envelope::ok(
+        state
+            .client
+            .live_connections(
+                &server_id,
+                query.page.unwrap_or(1),
+                query.per_page.unwrap_or(20),
+            )
+            .await?,
+    ))
+}
+
+async fn chatbot_link(
+    State(state): State<AppState>,
+    Path(server_id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(envelope::ok(state.client.chatbot_link(&server_id).await?))
+}
+
+async fn create_chatbot_test(
+    State(state): State<AppState>,
+    Json(body): Json<ChatbotBody>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(envelope::ok(
+        state.client.create_chatbot_test(&body.server_id).await?,
+    ))
 }

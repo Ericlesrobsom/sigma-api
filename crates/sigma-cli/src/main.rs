@@ -50,6 +50,28 @@ enum Cmd {
     Expiring,
     /// Avisos do painel.
     Notices,
+    /// Conexoes ao vivo de um servidor.
+    Live {
+        #[arg(long = "server-id")]
+        server_id: String,
+        #[arg(long, default_value_t = 1)]
+        page: u32,
+        #[arg(long = "per-page", default_value_t = 20)]
+        per_page: u32,
+    },
+    /// BotBot (link publico e criacao de teste sem login).
+    Chatbot {
+        #[command(subcommand)]
+        cmd: ChatbotCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum ChatbotCmd {
+    /// Mostra o link publico de criacao de teste.
+    Link { server_id: String },
+    /// Cria um teste real via link publico.
+    Test { server_id: String },
 }
 
 #[derive(Subcommand)]
@@ -282,6 +304,17 @@ async fn main() -> anyhow::Result<()> {
         Cmd::CustomersCountByServer => print(&client.customers_count_by_server().await?)?,
         Cmd::Expiring => print(&client.expiring().await?)?,
         Cmd::Notices => print(&client.notices().await?)?,
+        Cmd::Live {
+            server_id,
+            page,
+            per_page,
+        } => print(&client.live_connections(&server_id, page, per_page).await?)?,
+        Cmd::Chatbot { cmd } => match cmd {
+            ChatbotCmd::Link { server_id } => print(&client.chatbot_link(&server_id).await?)?,
+            ChatbotCmd::Test { server_id } => {
+                print(&client.create_chatbot_test(&server_id).await?)?
+            }
+        },
     }
     Ok(())
 }

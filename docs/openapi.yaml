@@ -425,6 +425,39 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/Envelope"
+  /v1/live-connections/{server_id}:
+    get:
+      summary: Conexoes ao vivo do servidor (tempo online e dispositivo)
+      parameters:
+        - { name: server_id, in: path, required: true, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: perPage, in: query, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+  /v1/chatbot/link/{server_id}:
+    get:
+      summary: Link publico do BotBot para criar teste sem login
+      parameters:
+        - { name: server_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+  /v1/chatbot/tests:
+    post:
+      summary: Cria um teste real via link publico do BotBot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [server_id]
+              properties:
+                server_id: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
 components:
   securitySchemes:
     bearerAuth:

@@ -89,12 +89,36 @@ A senha do painel **nunca** sai do servidor.
 | GET | `/v1/customers-count-by-server` | contagem por servidor |
 | GET | `/v1/expiring` | clientes a vencer |
 | GET | `/v1/notices` | avisos do painel |
+| GET | `/v1/live-connections/{server_id}` | conexões ao vivo (tempo online, dispositivo, stream) |
+| GET | `/v1/chatbot/link/{server_id}` | link público do BotBot |
+| POST | `/v1/chatbot/tests` | cria teste via BotBot sem login |
 
 Hoje o serviço cobre **leitura e escrita** dos fluxos mapeados: criar/editar/
 renovar/trocar plano/conexões/status/excluir cliente, criar revenda e
 adicionar créditos. O `PUT /v1/customers/{id}` aceita patch e faz o merge
 com o objeto completo que o painel exige. Criar revenda preenche os defaults
 observados (mínimo 10 créditos).
+
+### Conexões ao vivo
+
+`GET /v1/live-connections/{server_id}` devolve as linhas do painel com:
+`user_username`, `active_connections`, `max_connections`, `reseller_username`,
+`stream_display_name`, `user_agent` (dispositivo), `date_start_timestamp`
+(tempo online = agora − timestamp), `country_name` e `quality`. O `meta` traz
+`audience.countries` e `unknown_connections`.
+
+### BotBot (teste sem login)
+
+O painel publica um link que cria teste **sem sessão**:
+
+```
+POST https://<painel>/api/chatbot/<user_id>/<server_id>
+```
+
+`GET /v1/chatbot/link/{server_id}` devolve esse link; `POST /v1/chatbot/tests`
+com `{server_id}` executa o POST e devolve `username`, `password`, `dns`,
+`connections`, `expiresAt` e `payUrl`. Cada chamada cria um teste real — use
+com moderação.
 
 ## Configuracao
 
