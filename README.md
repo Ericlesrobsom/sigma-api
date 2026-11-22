@@ -129,7 +129,7 @@ com moderação.
 | `SIGMA_PASS` | sim | senha da revenda |
 | `SIGMA_SERVER_TOKEN` | sim | token local exigido nas rotas `/v1/*` |
 | `SIGMA_BIND` | nao | default `127.0.0.1:8787` |
-| `SIGMA_TIMEOUT_SECS` | nao | default `30` |
+| `SIGMA_TIMEOUT_SECS` | nao | default `120` |
 
 ## Limites conhecidos
 

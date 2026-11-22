@@ -40,7 +40,7 @@ impl SigmaConfig {
         let timeout_secs = std::env::var("SIGMA_TIMEOUT_SECS")
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or(30);
+            .unwrap_or(120);
         Ok(Self::new(panel_url, username.trim(), password).with_timeout(timeout_secs))
     }
 
