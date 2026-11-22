@@ -52,6 +52,34 @@ paths:
           $ref: "#/components/responses/Envelope"
         "401":
           $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Cria cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [server_id, package_id]
+              properties:
+                server_id: { type: string }
+                package_id: { type: string }
+                username: { type: string }
+                password: { type: string }
+                connections: { type: integer, minimum: 1 }
+                trial_hours: { type: number }
+                name: { type: string }
+                email: { type: string }
+                telegram: { type: string }
+                whatsapp: { type: string }
+                note: { type: string }
+                plan_price: {}
+                bouquets: {}
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "422":
+          $ref: "#/components/responses/Validation"
   /v1/customers/by-username/{username}:
     get:
       summary: Busca por username
@@ -70,6 +98,110 @@ paths:
           $ref: "#/components/responses/Envelope"
         "404":
           $ref: "#/components/responses/NotFound"
+    put:
+      summary: Atualiza campos gravaveis (merge com o cliente atual)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username: { type: string }
+                password: { type: string }
+                mac_address: { type: string }
+                name: { type: string }
+                email: { type: string }
+                telegram: { type: string }
+                whatsapp: { type: string }
+                note: { type: string }
+                plan_price: {}
+                bouquets: {}
+                playlist: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "422":
+          $ref: "#/components/responses/Validation"
+    delete:
+      summary: Remove o cliente (soft delete)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/customers/{id}/renew:
+    post:
+      summary: Renova o cliente
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                package_id: { type: string }
+                connections: { type: integer, minimum: 1 }
+                reference: { type: string }
+                create_manual_customer_order: { type: boolean }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "422":
+          $ref: "#/components/responses/Validation"
+  /v1/customers/{id}/change-package:
+    post:
+      summary: Troca o plano (mesmo numero de conexoes)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [package_id]
+              properties:
+                package_id: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "400":
+          $ref: "#/components/responses/Validation"
+  /v1/customers/{id}/change-connections:
+    post:
+      summary: Troca o numero de conexoes
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [package_id, connections]
+              properties:
+                package_id: { type: string }
+                connections: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "422":
+          $ref: "#/components/responses/Validation"
+  /v1/customers/{id}/toggle-status:
+    put:
+      summary: Alterna Ativo/Inativo
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
   /v1/packages:
     get:
       summary: Planos/pacotes
@@ -108,6 +240,53 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/Envelope"
+    post:
+      summary: Cria revenda
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, credits]
+              properties:
+                username: { type: string }
+                password: { type: string }
+                credits: { type: number, minimum: 10 }
+                name: { type: string }
+                email: { type: string }
+                telegram: { type: string }
+                whatsapp: { type: string }
+                note: { type: string }
+                role: { type: string, enum: [reseller, master_reseller, reseller_pos] }
+                servers: { type: array, items: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "422":
+          $ref: "#/components/responses/Validation"
+  /v1/resellers/{id}/credits:
+    post:
+      summary: Adiciona creditos a revenda
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [credits]
+              properties:
+                credits: { type: number, minimum: 0.001 }
+                reference: { type: string }
+                private_note: { type: string }
+                create_manual_credit_order: { type: boolean }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "422":
+          $ref: "#/components/responses/Validation"
   /v1/customers-count:
     get:
       summary: Contagem de clientes
@@ -155,6 +334,12 @@ components:
             $ref: "#/components/schemas/Error"
     NotFound:
       description: Nao encontrado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Validation:
+      description: Validacao/estado invalido (4xx do painel)
       content:
         application/json:
           schema:

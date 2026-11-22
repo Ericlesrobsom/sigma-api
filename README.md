@@ -60,8 +60,18 @@ A senha do painel **nunca** sai do servidor.
 | GET | `/openapi.json` | contrato OpenAPI |
 | GET | `/v1/me` | perfil, creditos e permissoes |
 | GET | `/v1/customers` | clientes (`page`, `perPage`, `username`, `status`, `isTrial`) |
+| POST | `/v1/customers` | cria cliente (JSON: `server_id`, `package_id`, ...) |
 | GET | `/v1/customers/by-username/{username}` | busca por username |
 | GET | `/v1/customers/{id}` | detalhe do cliente |
+| PUT | `/v1/customers/{id}` | edita campos graváveis (merge com o atual) |
+| DELETE | `/v1/customers/{id}` | remove (soft delete) |
+| POST | `/v1/customers/{id}/renew` | renova (plano/conexões/referência) |
+| POST | `/v1/customers/{id}/change-package` | troca o plano |
+| POST | `/v1/customers/{id}/change-connections` | troca conexões |
+| PUT | `/v1/customers/{id}/toggle-status` | alterna Ativo/Inativo |
+| GET | `/v1/resellers` | revendas da conta |
+| POST | `/v1/resellers` | cria revenda |
+| POST | `/v1/resellers/{id}/credits` | adiciona créditos |
 | GET | `/v1/packages` | planos/pacotes |
 | GET | `/v1/servers` | servidores |
 | GET | `/v1/credit-orders` | pedidos de credito |
@@ -73,9 +83,11 @@ A senha do painel **nunca** sai do servidor.
 | GET | `/v1/expiring` | clientes a vencer |
 | GET | `/v1/notices` | avisos do painel |
 
-Hoje o servico e **somente leitura**. Criar/editar/renovar cliente exige
-descobrir os endpoints de escrita do painel (o fluxo da UI ainda nao foi
-capturado); nao inventamos rota nem body.
+Hoje o serviço cobre **leitura e escrita** dos fluxos mapeados: criar/editar/
+renovar/trocar plano/conexões/status/excluir cliente, criar revenda e
+adicionar créditos. O `PUT /v1/customers/{id}` aceita patch e faz o merge
+com o objeto completo que o painel exige. Criar revenda preenche os defaults
+observados (mínimo 10 créditos).
 
 ## Configuracao
 

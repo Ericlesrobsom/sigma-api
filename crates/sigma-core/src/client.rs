@@ -52,7 +52,7 @@ struct ErrorBody {
     errors: Option<Value>,
 }
 
-/// Cliente com sessão de revenda: faz login (CAP + usuário/senha) e
+/// Cliente com sessÃ£o de revenda: faz login (CAP + usuÃ¡rio/senha) e
 /// renova o token sozinho em caso de 401.
 #[derive(Clone)]
 pub struct SigmaClient {
@@ -294,6 +294,165 @@ impl SigmaClient {
 
     pub async fn notices(&self) -> Result<Value, SigmaError> {
         self.get_value("/api/notices/list", &[]).await
+    }
+
+    pub async fn create_customer(&self, body: &Value) -> Result<Value, SigmaError> {
+        self.post_value("/api/customers", body).await
+    }
+
+    /// Atualiza por patch: busca o cliente atual, aplica sÃ³ os campos
+    /// gravÃ¡veis e envia o objeto completo (o painel espera o full object).
+    pub async fn update_customer(&self, id: &str, patch: &Value) -> Result<Value, SigmaError> {
+        const GRAVAVEIS: [&str; 12] = [
+            "username",
+            "password",
+            "mac_address",
+            "name",
+            "email",
+            "telegram",
+            "whatsapp",
+            "note",
+            "plan_price",
+            "bouquets",
+            "playlist",
+            "parent_can_edit_personal_data",
+        ];
+        let atual = self.customer(id).await?;
+        let mut data = atual.get("data").cloned().unwrap_or(atual);
+        let obj = data
+            .as_object_mut()
+            .ok_or_else(|| SigmaError::Config("cliente atual sem objeto data".into()))?;
+        let patch_obj = patch
+            .as_object()
+            .ok_or_else(|| SigmaError::Config("patch do cliente precisa ser objeto".into()))?;
+        for (chave, valor) in patch_obj {
+            if GRAVAVEIS.contains(&chave.as_str()) {
+                obj.insert(chave.clone(), valor.clone());
+            }
+        }
+        self.put_value(&format!("/api/customers/{}", segment(id)), &data)
+            .await
+    }
+
+    pub async fn renew_customer(&self, id: &str, body: &Value) -> Result<Value, SigmaError> {
+        self.post_value(&format!("/api/customers/{}/renew", segment(id)), body)
+            .await
+    }
+
+    pub async fn change_package(&self, id: &str, package_id: &str) -> Result<Value, SigmaError> {
+        self.post_value(
+            &format!("/api/customers/{}/change-package", segment(id)),
+            &json!({ "package_id": package_id }),
+        )
+        .await
+    }
+
+    pub async fn change_connections(
+        &self,
+        id: &str,
+        package_id: &str,
+        connections: i64,
+    ) -> Result<Value, SigmaError> {
+        self.post_value(
+            &format!("/api/customers/{}/change-connections", segment(id)),
+            &json!({ "package_id": package_id, "connections": connections }),
+        )
+        .await
+    }
+
+    pub async fn toggle_customer_status(&self, id: &str) -> Result<Value, SigmaError> {
+        self.put_value(
+            &format!("/api/customers/{}/toggle-status", segment(id)),
+            &json!({}),
+        )
+        .await
+    }
+
+    pub async fn delete_customer(&self, id: &str) -> Result<Value, SigmaError> {
+        self.delete_value(&format!("/api/customers/{}", segment(id)))
+            .await
+    }
+
+    /// Cria revenda preenchendo os defaults observados no painel.
+    /// O body precisa de `username`, `password` e `credits` (minimo 10).
+    pub async fn create_reseller(&self, body: &Value) -> Result<Value, SigmaError> {
+        let me = self.me().await?;
+        let parent = me
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| SigmaError::Config("me sem id".into()))?;
+        let mut full = json!({
+            "id": "",
+            "name": "",
+            "parent_user_id": parent,
+            "username": "",
+            "password": "",
+            "email": "",
+            "role": "reseller",
+            "status": "ACTIVE",
+            "telegram": "",
+            "whatsapp": "",
+            "credits": 10,
+            "note": "",
+            "parent": "",
+            "disable_after_days_without_recharge": 0,
+            "subresellers": [],
+            "servers": [],
+            "server_list_count": [],
+            "need_reset_password": "NO",
+            "membership_active": "NO",
+            "membership_type": "PER_ACTIVE_CUSTOMER",
+            "membership_plan_type": "PER_ACTIVE_CUSTOMER",
+            "membership_cost": "",
+            "membership_cost_extra": "",
+            "membership_credits_to_recharge": 0,
+            "membership_days_recurrency": 30,
+            "membership_min_customers_to_charge": 0,
+            "membership_max_number_of_customers": 0,
+            "membership_expiry_date": "",
+            "membership_expiry_time": "23:30",
+            "membership_reset_credits_on_expiry_date": "NO",
+            "parent_can_edit_personal_data": "YES"
+        });
+        if let (Some(dest), Some(src)) = (full.as_object_mut(), body.as_object()) {
+            for (k, v) in src {
+                dest.insert(k.clone(), v.clone());
+            }
+        }
+        self.post_value("/api/resellers", &full).await
+    }
+
+    pub async fn add_reseller_credits(
+        &self,
+        id: &str,
+        credits: f64,
+        reference: &str,
+        private_note: &str,
+        create_manual_credit_order: bool,
+    ) -> Result<Value, SigmaError> {
+        self.post_value(
+            &format!("/api/resellers/{}/add-credits", segment(id)),
+            &json!({
+                "credits": credits,
+                "reference": reference,
+                "private_note": private_note,
+                "create_manual_credit_order": create_manual_credit_order,
+                "manual_payment_total": null
+            }),
+        )
+        .await
+    }
+
+    pub async fn post_value(&self, path: &str, body: &Value) -> Result<Value, SigmaError> {
+        self.send(Method::POST, path, &[], Some(body)).await
+    }
+
+    pub async fn put_value(&self, path: &str, body: &Value) -> Result<Value, SigmaError> {
+        self.send(Method::PUT, path, &[], Some(body)).await
+    }
+
+    pub async fn delete_value(&self, path: &str) -> Result<Value, SigmaError> {
+        self.send(Method::DELETE, path, &[], None).await
     }
 }
 

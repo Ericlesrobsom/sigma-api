@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use sigma_core::{SigmaClient, SigmaConfig};
 use sigma_server::{app, AppState};
 use tower::ServiceExt;
-use wiremock::matchers::{method, path, query_param};
+use wiremock::matchers::{body_json, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn build_state(upstream: &MockServer, server_token: &str) -> AppState {
@@ -158,4 +158,71 @@ async fn resumo_de_creditos() {
     assert_eq!(response.status(), StatusCode::OK);
     let body = json_body(response).await;
     assert_eq!(body["data"]["data"]["credits_total"], 10);
+}
+
+fn request_json(method: &str, uri: &str, body: Value) -> Request<Body> {
+    Request::builder()
+        .method(method)
+        .uri(uri)
+        .header("authorization", "Bearer server-token")
+        .header("content-type", "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
+#[tokio::test]
+async fn cria_cliente_pela_api() {
+    let upstream = MockServer::start().await;
+    mock_login(&upstream).await;
+    Mock::given(method("POST"))
+        .and(path("/api/customers"))
+        .respond_with(ResponseTemplate::new(201).set_body_json(json!({
+            "data": {"id": "c1", "username": "testeapi"}
+        })))
+        .mount(&upstream)
+        .await;
+
+    let response = app(build_state(&upstream, "server-token"))
+        .oneshot(request_json(
+            "POST",
+            "/v1/customers",
+            json!({"server_id": "s1", "package_id": "p1", "username": "testeapi"}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json_body(response).await;
+    assert_eq!(body["data"]["data"]["id"], "c1");
+}
+
+#[tokio::test]
+async fn adiciona_creditos_pela_api() {
+    let upstream = MockServer::start().await;
+    mock_login(&upstream).await;
+    Mock::given(method("POST"))
+        .and(path("/api/resellers/r1/add-credits"))
+        .and(body_json(json!({
+            "credits": 10.0,
+            "reference": "",
+            "private_note": "",
+            "create_manual_credit_order": false,
+            "manual_payment_total": null
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "data": {"id": "r1", "credits": 20}
+        })))
+        .mount(&upstream)
+        .await;
+
+    let response = app(build_state(&upstream, "server-token"))
+        .oneshot(request_json(
+            "POST",
+            "/v1/resellers/r1/credits",
+            json!({"credits": 10}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = json_body(response).await;
+    assert_eq!(body["data"]["data"]["credits"], 20);
 }
