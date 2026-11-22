@@ -171,3 +171,9 @@ curl -H "Authorization: Bearer token-local-longo" http://127.0.0.1:8787/v1/me
 
 Se o pacote do GHCR estiver privado, rode `docker login ghcr.io` uma vez
 (com um PAT com `read:packages`) antes.
+
+## Licenca
+
+MIT — veja [`LICENSE`](LICENSE). Você pode baixar, executar, modificar e
+redistribuir, mantendo o aviso de copyright. Credenciais e tokens não fazem
+parte do código: use variáveis de ambiente.
