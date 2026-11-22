@@ -1,6 +1,6 @@
 services:
   sigma-api:
-    image: ghcr.io/ericlesrobsom/sigma-api:0.1.0
+    image: ghcr.io/ericlesrobsom/sigma-api:0.1.1
     build: .
     restart: unless-stopped
     ports:

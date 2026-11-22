@@ -160,7 +160,7 @@ docker run -d --name sigma-api -p 8787:8787 \
   -e SIGMA_USER='seu-usuario' \
   -e SIGMA_PASS='sua-senha' \
   -e SIGMA_SERVER_TOKEN='token-local-longo' \
-  ghcr.io/ericlesrobsom/sigma-api:0.1.0
+  ghcr.io/ericlesrobsom/sigma-api:0.1.1
 ```
 
 O Docker baixa a imagem sozinho se ela não existir. Depois:
