@@ -1,0 +1,13 @@
+services:
+  sigma-api:
+    build: .
+    image: sigma-api:local
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      SIGMA_API_BASE_URL: ${SIGMA_API_BASE_URL}
+      SIGMA_API_TOKEN: ${SIGMA_API_TOKEN}
+      SIGMA_SERVER_TOKEN: ${SIGMA_SERVER_TOKEN}
+      SIGMA_BIND: 0.0.0.0:8787
+      RUST_LOG: sigma_serve=info,tower_http=info

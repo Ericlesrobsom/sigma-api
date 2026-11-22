@@ -1,0 +1,14 @@
+# segredos e ambiente
+.env
+.env.*
+!.env.example
+
+# build
+/target
+**/target
+client/bin/
+
+# artefatos
+*.log
+*.out
+.DS_Store
